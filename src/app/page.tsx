@@ -1,145 +1,150 @@
-'use client'
+'use client';
 
-import { useState, useEffect, useCallback, FormEvent } from 'react'
-import { PasswordGenerator } from '@/components/PasswordGenerator'
-import { ThemeSwitcher } from '@/components/ThemeSwitcher'
-import { encrypt, decrypt } from '../../lib/crypto.js'
-import { useTheme } from 'next-themes'
+import { useState, useEffect, useCallback, FormEvent } from 'react';
+import { PasswordGenerator } from '@/components/PasswordGenerator';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
+import { encrypt, decrypt } from '../../lib/crypto.js';
+import { useTheme } from 'next-themes';
 
 interface VaultItemType {
-  _id: string
-  title: string
-  username: string
-  password?: string
-  url: string
-  notes: string
+  _id: string;
+  title: string;
+  username: string;
+  password?: string;
+  url: string;
+  notes: string;
 }
-const initialFormState = { title: '', username: '', password: '', url: '', notes: '' }
+
+interface EncryptedItem {
+  title: string;
+  username: string;
+  password: string;
+  url: string;
+  notes: string;
+}
+
+const initialFormState = { title: '', username: '', password: '', url: '', notes: '' };
 
 export default function DashboardPage() {
-  const { theme } = useTheme()
-  const [encryptionKey, setEncryptionKey] = useState<string | null>(null)
-  const [vaultItems, setVaultItems] = useState<VaultItemType[]>([])
-  const [filteredItems, setFilteredItems] = useState<VaultItemType[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
+  const { theme } = useTheme();
+  const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
+  const [vaultItems, setVaultItems] = useState<VaultItemType[]>([]);
+  const [filteredItems, setFilteredItems] = useState<VaultItemType[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Modals & Forms
-  const [showAdd, setShowAdd] = useState(false)
-  const [addForm, setAddForm] = useState(initialFormState)
-  const [viewItem, setViewItem] = useState<VaultItemType | null>(null)
-  const [editItem, setEditItem] = useState<VaultItemType | null>(null)
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState(initialFormState);
+  const [viewItem, setViewItem] = useState<VaultItemType | null>(null);
+  const [editItem, setEditItem] = useState<VaultItemType | null>(null);
 
   const handleGeneratePassword = (pwd: string) => {
-    if (showAdd) setAddForm((s) => ({ ...s, password: pwd }))
-    if (editItem) setEditItem((s) => (s ? { ...s, password: pwd } : null))
-  }
+    if (showAdd) setAddForm((s) => ({ ...s, password: pwd }));
+    if (editItem) setEditItem((s) => (s ? { ...s, password: pwd } : null));
+  };
 
   const fetchVaultItems = useCallback(async () => {
-    if (!encryptionKey) return
-    setIsLoading(true)
+    if (!encryptionKey) return;
+    setIsLoading(true);
     try {
-      const res = await fetch('/api/vault')
-      const data = await res.json()
-      const decrypted = data.items.map((item: any) => ({
-        ...item,
+      const res = await fetch('/api/vault');
+      const data = await res.json();
+      const decrypted = data.items.map((item: EncryptedItem & { _id: string }) => ({
+        _id: item._id,
         title: decrypt(item.title, encryptionKey),
         username: decrypt(item.username, encryptionKey),
         password: decrypt(item.password, encryptionKey),
         url: decrypt(item.url, encryptionKey),
         notes: decrypt(item.notes, encryptionKey),
-      }))
-      setVaultItems(decrypted)
-    } catch (err) {
-      console.error(err)
+      }));
+      setVaultItems(decrypted);
+    } catch (error) {
+      console.error(error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [encryptionKey])
+  }, [encryptionKey]);
 
   useEffect(() => {
-    const key = sessionStorage.getItem('encryption_key')
-    if (key) setEncryptionKey(key)
+    const key = sessionStorage.getItem('encryption_key');
+    if (key) setEncryptionKey(key);
     else {
-      document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      window.location.href = '/login'
+      document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      window.location.href = '/login';
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    if (encryptionKey) fetchVaultItems()
-  }, [encryptionKey, fetchVaultItems])
+    if (encryptionKey) fetchVaultItems();
+  }, [encryptionKey, fetchVaultItems]);
 
-  // FIXED SEARCH: filters vaultItems as user types, ignoring case
   useEffect(() => {
     if (searchTerm.trim().length === 0) {
-      setFilteredItems(vaultItems)
+      setFilteredItems(vaultItems);
     } else {
-      const lower = searchTerm.toLowerCase()
+      const lower = searchTerm.toLowerCase();
       setFilteredItems(
         vaultItems.filter(
           (item) =>
             item.title.toLowerCase().includes(lower) || item.username.toLowerCase().includes(lower)
         )
-      )
+      );
     }
-  }, [searchTerm, vaultItems])
+  }, [searchTerm, vaultItems]);
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure?')) return
-    await fetch(`/api/vault/${id}`, { method: 'DELETE' })
-    fetchVaultItems()
-  }
+    if (!window.confirm('Are you sure?')) return;
+    await fetch(`/api/vault/${id}`, { method: 'DELETE' });
+    fetchVaultItems();
+  };
 
   const handleAdd = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!encryptionKey) return
+    e.preventDefault();
+    if (!encryptionKey) return;
     const encrypted = {
       title: encrypt(addForm.title, encryptionKey),
       username: encrypt(addForm.username, encryptionKey),
       password: encrypt(addForm.password, encryptionKey),
       url: encrypt(addForm.url, encryptionKey),
       notes: encrypt(addForm.notes, encryptionKey),
-    }
+    };
     await fetch('/api/vault', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(encrypted),
-    })
-    setAddForm(initialFormState)
-    setShowAdd(false)
-    fetchVaultItems()
-  }
+    });
+    setAddForm(initialFormState);
+    setShowAdd(false);
+    fetchVaultItems();
+  };
 
   const handleUpdate = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!encryptionKey || !editItem) return
+    e.preventDefault();
+    if (!encryptionKey || !editItem) return;
     const encrypted = {
       title: encrypt(editItem.title, encryptionKey),
       username: encrypt(editItem.username, encryptionKey),
       password: encrypt(editItem.password || '', encryptionKey),
       url: encrypt(editItem.url, encryptionKey),
       notes: encrypt(editItem.notes, encryptionKey),
-    }
+    };
     await fetch(`/api/vault/${editItem._id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(encrypted),
-    })
-    setEditItem(null)
-    fetchVaultItems()
-  }
+    });
+    setEditItem(null);
+    fetchVaultItems();
+  };
 
   const closeModals = () => {
-    setShowAdd(false)
-    setViewItem(null)
-    setEditItem(null)
-  }
+    setShowAdd(false);
+    setViewItem(null);
+    setEditItem(null);
+  };
 
   if (!encryptionKey)
-    return (
-      <div className="min-h-screen flex items-center justify-center">Unlocking vault...</div>
-    )
+    return <div className="min-h-screen flex items-center justify-center">Unlocking vault...</div>;
 
   return (
     <div
@@ -162,9 +167,9 @@ export default function DashboardPage() {
           <ThemeSwitcher />
           <button
             onClick={async () => {
-              sessionStorage.removeItem('encryption_key')
-              await fetch('/api/auth/logout')
-              window.location.href = '/login'
+              sessionStorage.removeItem('encryption_key');
+              await fetch('/api/auth/logout');
+              window.location.href = '/login';
             }}
             className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600"
           >
@@ -201,8 +206,8 @@ export default function DashboardPage() {
             <h2 className="text-2xl font-bold">My Vault</h2>
             <button
               onClick={() => {
-                setShowAdd(true)
-                setAddForm(initialFormState)
+                setShowAdd(true);
+                setAddForm(initialFormState);
               }}
               className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700"
             >
@@ -264,17 +269,13 @@ export default function DashboardPage() {
               ))}
           </div>
 
-          {/* Add Modal */}
           {showAdd && (
             <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
               <form
                 onSubmit={handleAdd}
                 className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 max-w-xl w-full shadow-xl space-y-6 overflow-y-auto max-h-[90vh]"
               >
-                <h3 className="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">
-                  Add New Vault Item
-                </h3>
-
+                <h3 className="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">Add New Vault Item</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
@@ -299,7 +300,6 @@ export default function DashboardPage() {
                     />
                   </div>
                 </div>
-
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
                   <input
@@ -327,12 +327,8 @@ export default function DashboardPage() {
                     className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-gray-100"
                   />
                 </div>
-
                 <div className="flex gap-4 justify-center mt-6">
-                  <button
-                    type="submit"
-                    className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
-                  >
+                  <button type="submit" className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold">
                     Save
                   </button>
                   <button
@@ -347,26 +343,18 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* View Modal */}
           {viewItem && (
             <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
               <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-xl space-y-4 overflow-y-auto max-h-[90vh]">
-                <h3 className="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">
-                  View Vault Item
-                </h3>
+                <h3 className="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">View Vault Item</h3>
                 {Object.entries(viewItem).map(([key, value]) => (
                   <div key={key} className="mb-2">
-                    <label className="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300 capitalize">
-                      {key}
-                    </label>
+                    <label className="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300 capitalize">{key}</label>
                     <p className="bg-gray-100 dark:bg-gray-700 p-2 rounded text-gray-900 dark:text-gray-100">{value || '-'}</p>
                   </div>
                 ))}
                 <div className="flex justify-center mt-4">
-                  <button
-                    onClick={() => setViewItem(null)}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
-                  >
+                  <button onClick={() => setViewItem(null)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
                     Back
                   </button>
                 </div>
@@ -374,22 +362,16 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Scrollable Edit Modal */}
           {editItem && (
             <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
               <form
                 onSubmit={handleUpdate}
                 className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 w-full max-w-xl shadow-xl space-y-4 max-h-[90vh] overflow-y-auto"
               >
-                <h3 className="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">
-                  Edit Vault Item
-                </h3>
-
+                <h3 className="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-100">Edit Vault Item</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Title
-                    </label>
+                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
                     <input
                       type="text"
                       value={editItem.title}
@@ -398,11 +380,8 @@ export default function DashboardPage() {
                       className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-gray-100"
                     />
                   </div>
-
                   <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Username
-                    </label>
+                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
                     <input
                       type="text"
                       value={editItem.username}
@@ -412,11 +391,8 @@ export default function DashboardPage() {
                     />
                   </div>
                 </div>
-
                 <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Password
-                  </label>
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
                   <input
                     type="text"
                     value={editItem.password}
@@ -424,7 +400,6 @@ export default function DashboardPage() {
                     required
                     className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 text-gray-900 dark:text-gray-100"
                   />
-
                   <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">URL</label>
                   <input
                     type="url"
@@ -432,7 +407,6 @@ export default function DashboardPage() {
                     onChange={(e) => setEditItem({ ...editItem, url: e.target.value })}
                     className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 text-gray-900 dark:text-gray-100"
                   />
-
                   <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
                   <textarea
                     rows={3}
@@ -441,19 +415,11 @@ export default function DashboardPage() {
                     className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-gray-100"
                   />
                 </div>
-
                 <div className="flex justify-center gap-4 mt-4">
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
-                  >
+                  <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
                     Update
                   </button>
-                  <button
-                    type="button"
-                    onClick={closeModals}
-                    className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg"
-                  >
+                  <button type="button" onClick={closeModals} className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg">
                     Cancel
                   </button>
                 </div>
@@ -463,5 +429,5 @@ export default function DashboardPage() {
         </section>
       </main>
     </div>
-  )
+  );
 }
