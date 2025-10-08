@@ -32,7 +32,8 @@ export default function LoginPage() {
         const data = await res.json();
         setError(data.message || 'Invalid credentials!');
       }
-    } catch (err) {
+    } catch (_error) {
+      // Use _error to avoid 'defined but never used' warning
       sessionStorage.removeItem('encryption_key');
       setError('An error occurred. Please try again.');
     }
@@ -59,13 +60,16 @@ export default function LoginPage() {
             required
             className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          <button type="submit" className="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 transition-colors">
+          <button
+            type="submit"
+            className="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 transition-colors"
+          >
             Log In
           </button>
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         </form>
         <p className="text-center text-sm text-slate-600">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link href="/signup" className="font-medium text-indigo-600 hover:underline">
             Sign up
           </Link>
