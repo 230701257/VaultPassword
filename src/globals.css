@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  /* Default (Light Theme) */
+  @apply bg-slate-100 text-slate-800;
+}
+
+body.dark {
+  /* Dark Theme */
+  @apply bg-[#0a0a0a] text-slate-200;
+}
+
+/* Smooth transition for theme changes */
+*, *::before, *::after {
+  transition-property: color, background-color, border-color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
