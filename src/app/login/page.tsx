@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import CryptoJS from 'crypto-js';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,70 +9,67 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     try {
-      const encryptionKey = CryptoJS.SHA256(password).toString();
-      sessionStorage.setItem('encryption_key', encryptionKey);
-
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      if (res.ok) {
-        router.push('/');
-      } else {
-        sessionStorage.removeItem('encryption_key');
-        const data = await res.json();
-        setError(data.message || 'Invalid credentials!');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message);
+        return;
       }
-    } catch (_error) {
-      // Use _error to avoid 'defined but never used' warning
-      sessionStorage.removeItem('encryption_key');
-      setError('An error occurred. Please try again.');
+
+      router.push('/dashboard');
+    } catch {
+      setError('Something went wrong. Please try again.');
     }
   };
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-slate-100">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white border border-slate-200 rounded-2xl shadow-xl">
-        <h1 className="text-3xl font-bold text-center text-slate-900">Log In to Your Vault</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md space-y-4">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">Login</h1>
+
+        {error && <p className="text-red-500 text-center">{error}</p>}
+
+        <div>
+          <label className="block mb-1 text-gray-700 dark:text-gray-300">Email</label>
           <input
             type="email"
-            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
+        </div>
+
+        <div>
+          <label className="block mb-1 text-gray-700 dark:text-gray-300">Password</label>
           <input
             type="password"
-            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          <button
-            type="submit"
-            className="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            Log In
-          </button>
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-        </form>
-        <p className="text-center text-sm text-slate-600">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="font-medium text-indigo-600 hover:underline">
-            Sign up
-          </Link>
+        </div>
+
+        <button type="submit" className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg">
+          Login
+        </button>
+
+        <p className="text-center text-gray-500 dark:text-gray-400 text-sm">
+          Don&apos;t have an account? <a href="/signup" className="text-indigo-500 hover:underline">Sign up</a>
         </p>
-      </div>
-    </main>
+      </form>
+    </div>
   );
 }
